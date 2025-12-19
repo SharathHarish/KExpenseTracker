@@ -1,9 +1,12 @@
+# gui/reports.py
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from matplotlib.patches import Wedge, Circle, FancyArrowPatch
 from db.repository import Repository
+from PIL import Image, ImageTk, ImageDraw
+import os
+import math
 import numpy as np
 
 # ================= THEME =================
@@ -12,7 +15,6 @@ TEXT_LIGHT = "#ffffff"
 FERRARI_RED = "#C4001A"
 INCOME_COLOR = "#32CD32"   # green
 EXPENSE_COLOR = "#FFA500"  # orange
-
 
 class ReportsWindow(ttk.Frame):
     def __init__(self, parent, inline=False):
@@ -118,11 +120,10 @@ class ReportsWindow(ttk.Frame):
         return canvas.get_tk_widget()
 
     # ======================================================
-    # LINE CHART (WHITE BACKGROUND, DAY-WISE TOTALS)
+    # LINE CHART
     # ======================================================
     def create_income_expense_line_chart(self, parent):
-        daily_data = self.repo.fetch_transactions()  # new repo function
-
+        daily_data = self.repo.fetch_transactions()
         if not daily_data:
             return ttk.Label(parent, text="No data", foreground=TEXT_LIGHT, background=CARD_BG)
 
@@ -153,67 +154,89 @@ class ReportsWindow(ttk.Frame):
         return canvas.get_tk_widget()
 
     # ======================================================
-    # EXPENSOMETER GAUGE
+    # EXPENSOMETER IMAGE + 3D DYNAMIC NEEDLE
     # ======================================================
-    def create_income_expense_gauge(self, parent, income, expense):
-        diff = income - expense
-        max_val = max(income, expense, 1)
+    def create_income_expense_gauge(self, parent, total_income, total_expense):
+        img_path = os.path.join("assets", "exp.png")
+        if not os.path.exists(img_path):
+            tk.Label(parent, text="Expensometer image not found!", bg=CARD_BG, fg="red").pack()
+            return
 
-        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw={"aspect": "equal"})
-        fig.patch.set_facecolor(CARD_BG)
-        ax.axis("off")
-        ax.set_xlim(-1, 1)
-        ax.set_ylim(-0.3, 1.1)
+        # Smaller gauge
+        base_img = Image.open(img_path).convert("RGBA")
+        base_img = base_img.resize((180, 180), Image.Resampling.LANCZOS)
+        size = base_img.size
+        center = (size[0] // 2, size[1] // 2)
+        radius = min(center) * 0.7
 
-        zones = [
-            (0, 0.33, "grey"),
-            (0.33, 0.66, "yellow"),
-            (0.66, 1.0, "red"),
-        ]
+        # Diff calculation
+        diff = total_income - total_expense
 
-        for s, e, c in zones:
-            ax.add_patch(Wedge((0, 0), 1, 180 - s * 180, 180 - e * 180, color=c, alpha=0.85))
+        # Determine zone based on logic
+        if diff < 0:
+            zone_txt, zone_clr = "Overspent", "red"
+            target_angle = 180  # right
+        elif diff < 0.5 * total_income:
+            zone_txt, zone_clr = "Moderate", "grey"
+            target_angle = 90  # center
+        else:
+            zone_txt, zone_clr = "Good savings", "green"
+            target_angle = 0  # left
 
-        for i in range(11):
-            a = np.deg2rad(180 - i * 18)
-            ax.plot([0.9 * np.cos(a), np.cos(a)], [0.9 * np.sin(a), np.sin(a)], lw=2)
+        # Tkinter label for gauge
+        needle_label = tk.Label(parent, bg=CARD_BG)
+        needle_label.pack()
 
-        ax.add_patch(Circle((0, 0), 0.05, color="black"))
+        # Draw needle as triangle
+        def draw_needle(angle):
+            overlay = Image.new("RGBA", size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            # Flip angle: 0°=left, 180°=right
+            rad = math.radians(180 - angle)
+            tip_x = center[0] + radius * math.cos(rad)
+            tip_y = center[1] - radius * math.sin(rad)
+            width = radius * 0.05
+            left_x = center[0] - width * math.sin(rad)
+            left_y = center[1] - width * math.cos(rad)
+            right_x = center[0] + width * math.sin(rad)
+            right_y = center[1] + width * math.cos(rad)
+            points = [(tip_x, tip_y), (left_x, left_y), (right_x, right_y)]
+            draw.polygon(points, fill="black")
+            combined = Image.alpha_composite(base_img, overlay)
+            img_tk = ImageTk.PhotoImage(combined)
+            needle_label.configure(image=img_tk)
+            needle_label.image = img_tk
 
-        angle = 180 - ((diff + max_val) / (2 * max_val)) * 180
-        ax.add_patch(
-            FancyArrowPatch(
-                (0, 0),
-                (0.8 * np.cos(np.deg2rad(angle)), 0.8 * np.sin(np.deg2rad(angle))),
-                mutation_scale=25,
-                lw=3,
-                color="black",
-            )
-        )
+        # Animate needle smoothly
+        current_angle = 180  # start from right-most (red)
+        step = -2 if target_angle < current_angle else 2
 
-        canvas = FigureCanvasTkAgg(fig, parent)
-        canvas.draw()
-        canvas.get_tk_widget().pack()
+        def animate():
+            nonlocal current_angle
+            if (step > 0 and current_angle < target_angle) or (step < 0 and current_angle > target_angle):
+                current_angle += step
+                if (step > 0 and current_angle > target_angle) or (step < 0 and current_angle < target_angle):
+                    current_angle = target_angle
+                draw_needle(current_angle)
+                parent.after(15, animate)
+            else:
+                draw_needle(target_angle)
 
+        animate()
+
+        # Labels below gauge
         tk.Label(
             parent,
             text="EXPENSOMETER",
-            bg="white",
-            fg="black",
+            bg=CARD_BG,
+            fg=TEXT_LIGHT,
             font=("Segoe UI", 10, "bold"),
         ).pack(pady=(5, 0))
 
-        if diff >= max_val * 0.66:
-            txt, clr = "Potential for accident", "red"
-        elif diff >= max_val * 0.33:
-            txt, clr = "Don’t hit the accelerator too much", "orange"
-        else:
-            txt, clr = "Good speed", "green"
-
         tk.Label(
             parent,
-            text=txt,
-            fg=clr,
+            text=zone_txt,
+            fg=zone_clr,
             bg=CARD_BG,
             font=("Segoe UI", 10, "bold"),
         ).pack(pady=(2, 10))
