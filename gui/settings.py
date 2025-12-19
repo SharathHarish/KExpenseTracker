@@ -25,7 +25,7 @@ class SettingsWindow(ttk.Frame):
         # Title
         ttk.Label(
             self,
-            text="Currency Conversion",
+            text="Conversion",
             style="Card.TLabel",
             font=("Segoe UI", 13, "bold"),
         ).pack(anchor="center", pady=(0, 15))

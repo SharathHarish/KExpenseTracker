@@ -78,9 +78,16 @@ class MainWindow:
         content = ttk.Frame(self.root, style="Card.TFrame")
         content.pack(fill="both", expand=True, padx=20, pady=10)
 
+        # Configure grid: 3 columns
+        content.columnconfigure(0, weight=5)  # Left - Transactions
+        content.columnconfigure(1, weight=3)  # Middle - Reports
+        content.columnconfigure(2, weight=2)  # Right - Settings
+
+        content.rowconfigure(0, weight=1)
+
         # -------- LEFT : TRANSACTIONS --------
         left = ttk.Frame(content, style="Card.TFrame")
-        left.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         ttk.Label(left, text="Recent Transactions", style="Card.TLabel") \
             .pack(anchor="w", padx=10, pady=5)
@@ -92,8 +99,8 @@ class MainWindow:
         self.list_view.pack(fill="both", expand=True, padx=10, pady=10)
 
         # -------- MIDDLE : REPORTS --------
-        middle = ttk.Frame(content, style="Card.TFrame", width=420)
-        middle.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        middle = ttk.Frame(content, style="Card.TFrame")
+        middle.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
 
         ttk.Label(middle, text="Reports", style="Card.TLabel") \
             .pack(anchor="w", padx=10, pady=5)
@@ -102,8 +109,8 @@ class MainWindow:
         self.reports_view.pack(fill="both", expand=True, padx=10, pady=10)
 
         # -------- RIGHT : SETTINGS --------
-        right = ttk.Frame(content, style="Card.TFrame", width=300)
-        right.pack(side="right", fill="both")
+        right = ttk.Frame(content, style="Card.TFrame")
+        right.grid(row=0, column=2, sticky="nsew")
 
         ttk.Label(right, text="Settings", style="Card.TLabel") \
             .pack(anchor="w", padx=10, pady=5)
