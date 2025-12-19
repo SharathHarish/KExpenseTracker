@@ -24,7 +24,7 @@ class Repository:
 
         cur.execute(
             """
-            SELECT id, date, amount, type, category, payment_method, tags, note
+            SELECT id, date, amount, type, category, payment_method, tags
             FROM transactions
             ORDER BY date DESC
             """
@@ -87,38 +87,4 @@ class Repository:
         cur.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
         conn.commit()
         conn.close()
-    def get_daily_income_expense(self):
-        """
-        Returns a list of tuples: (date, total_income, total_expense)
-        Dates are in datetime.date format
-        """
-        query = "SELECT date, type, SUM(amount) as total FROM transactions GROUP BY date, type ORDER BY date ASC"
-        self.cursor.execute(query)
-        rows = self.cursor.fetchall()
-
-        daily = {}
-        for row in rows:
-            try:
-                # Support multiple formats
-                for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
-                    try:
-                        date = datetime.strptime(row["date"], fmt).date()
-                        break
-                    except ValueError:
-                        continue
-            except:
-                continue
-
-            if date not in daily:
-                daily[date] = {"income": 0, "expense": 0}
-
-            txn_type = row["type"].lower()
-            amount = float(row["total"])
-            if txn_type == "income":
-                daily[date]["income"] = amount
-            elif txn_type == "expense":
-                daily[date]["expense"] = amount
-
-        # Convert to sorted list of tuples
-        result = [(date, daily[date]["income"], daily[date]["expense"]) for date in sorted(daily)]
-        return result
+    

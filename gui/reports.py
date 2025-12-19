@@ -121,7 +121,7 @@ class ReportsWindow(ttk.Frame):
     # LINE CHART (WHITE BACKGROUND, DAY-WISE TOTALS)
     # ======================================================
     def create_income_expense_line_chart(self, parent):
-        daily_data = self.repo.get_daily_income_expense()  # new repo function
+        daily_data = self.repo.fetch_transactions()  # new repo function
 
         if not daily_data:
             return ttk.Label(parent, text="No data", foreground=TEXT_LIGHT, background=CARD_BG)
